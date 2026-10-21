@@ -1,0 +1,428 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GenAI Performance Engineering Workbench</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #f3f6fb;
+      color: #182238;
+    }
+
+    header {
+      padding: 24px 5%;
+      background: #14243b;
+      color: white;
+    }
+
+    header h1 { margin: 0 0 8px; font-size: 26px; }
+    header p { margin: 0; color: #cfdaeb; }
+
+    main {
+      max-width: 1150px;
+      margin: 28px auto;
+      padding: 0 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      background: white;
+      padding: 22px;
+      border-radius: 12px;
+      border: 1px solid #dce3ee;
+      margin-bottom: 18px;
+      min-width: 0;
+    }
+
+    h2 { font-size: 18px; margin: 0 0 16px; }
+    h3 { font-size: 15px; margin: 20px 0 8px; }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin: 14px 0 6px;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      font: inherit;
+      background: white;
+    }
+
+    textarea { min-height: 85px; resize: vertical; }
+
+    .checks {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .checks label {
+      font-weight: 400;
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .checks input { width: auto; }
+
+    button {
+      margin: 10px 8px 0 0;
+      padding: 11px 16px;
+      border: 0;
+      border-radius: 7px;
+      background: #2458d3;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled { opacity: .55; cursor: wait; }
+    button.secondary { background: #e5ebf5; color: #182238; }
+
+    .muted { color: #64748b; font-size: 13px; }
+    #status { font-weight: 700; overflow-wrap: anywhere; }
+
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      max-height: 500px;
+      overflow: auto;
+      padding: 14px;
+      background: #101827;
+      color: #d9e5f5;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .report-link {
+      display: inline-block;
+      margin: 8px 14px 0 0;
+      overflow-wrap: anywhere;
+    }
+
+    a { color: #2458d3; }
+    .report-item { margin-bottom: 8px; }
+
+    @media(max-width: 600px) {
+      header h1 { font-size: 21px; }
+      .card { padding: 16px; }
+    }
+  </style>
+</head>
+
+<body>
+<header>
+  <h1>GenAI Performance Engineering Workbench</h1>
+  <p>AI-assisted planning · Controlled execution · Evidence-based analysis</p>
+</header>
+
+<main>
+  <div class="grid">
+    <section class="card">
+      <h2>1. Application and test objective</h2>
+
+      <label for="baseUrl">Application endpoint</label>
+      <input id="baseUrl" value="http://localhost:3002/products">
+
+      <label for="objective">Performance objective</label>
+      <textarea id="objective">Validate response time, request rate, errors, and configured SLA gates.</textarea>
+
+      <label for="release">Release</label>
+      <input id="release" value="5.2">
+
+      <p class="muted">Use an endpoint you are authorized to test.</p>
+    </section>
+
+    <section class="card">
+      <h2>2. Select test phases</h2>
+
+      <div class="checks">
+        <label><input type="checkbox" value="baseline" checked> Baseline</label>
+        <label><input type="checkbox" value="load"> Load</label>
+        <label><input type="checkbox" value="stress"> Stress</label>
+        <label><input type="checkbox" value="spike"> Spike</label>
+        <label><input type="checkbox" value="soak"> Soak</label>
+      </div>
+
+      <p class="muted">
+        Load, stress, spike, and soak can generate sustained or elevated
+        traffic. Run them only on an authorized target.
+      </p>
+
+      <button id="planBtn" class="secondary">Prepare Plan Preview</button>
+      <button id="runBtn">Run Performance Test</button>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>3. AI plan preview</h2>
+    <pre id="planText">Select test phases and prepare a plan preview.</pre>
+    <p class="muted">
+      This preview uses your selected phases and configured server profile.
+      LLM-generated planning is not connected yet.
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>4. Execution status</h2>
+
+    <p>Status: <span id="status">Not started</span></p>
+    <p id="runId" class="muted">No run selected.</p>
+
+    <button id="refreshBtn" class="secondary">Refresh Status</button>
+    <pre id="output">Execution output will appear here.</pre>
+  </section>
+
+  <section class="card">
+    <h2>5. Performance report</h2>
+    <div id="reports">Run a test to generate a report.</div>
+  </section>
+</main>
+
+<script>
+  const $ = id => document.getElementById(id);
+
+  let currentRunId = null;
+  let pollHandle = null;
+  let lastStatus = null;
+
+  function selectedPhases() {
+    const selected = [
+      ...document.querySelectorAll('.checks input:checked')
+    ].map(input => input.value);
+
+    const order = ['baseline', 'load', 'stress', 'spike', 'soak'];
+    return order.filter(phase => selected.includes(phase));
+  }
+
+  function showReportMessage(message) {
+    $('reports').textContent = message;
+  }
+
+  function addReportLink(container, report) {
+    const link = document.createElement('a');
+    link.className = 'report-link';
+    link.href = report.url;
+    link.textContent = `Open ${report.name}`;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'report-item';
+    wrapper.appendChild(link);
+    container.appendChild(wrapper);
+  }
+
+  async function loadReportPreview(container, report) {
+    const title = document.createElement('h3');
+    title.textContent = 'Markdown performance report';
+    container.appendChild(title);
+
+    const preview = document.createElement('pre');
+    preview.textContent = 'Loading report contents...';
+    container.appendChild(preview);
+
+    try {
+      const response = await fetch(report.url, { cache: 'no-store' });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const content = await response.text();
+      preview.textContent = content || 'The report file is empty.';
+    } catch (error) {
+      preview.textContent =
+        `Unable to load report: ${error.message}\n` +
+        `Use the report link above to try opening it directly.`;
+    }
+  }
+
+  async function displayReports(reports, status) {
+    const container = $('reports');
+    container.replaceChildren();
+
+    if (!Array.isArray(reports) || reports.length === 0) {
+      container.textContent =
+        ['completed', 'failed'].includes(status)
+          ? 'The server did not return report links. Check the execution output and reports folder.'
+          : 'Waiting for report files...';
+      return;
+    }
+
+    const heading = document.createElement('p');
+    heading.textContent = 'Generated performance reports';
+    container.appendChild(heading);
+
+    for (const report of reports) {
+      if (!report || typeof report.url !== 'string' ||
+          typeof report.name !== 'string') {
+        continue;
+      }
+
+      addReportLink(container, report);
+    }
+
+  const markdownReport = reports.find(
+  report => report &&
+    typeof report.name === 'string' &&
+    /markdown/i.test(report.name) &&
+    typeof report.url === 'string' &&
+    /\.md(?:$|\?)/i.test(report.url)
+);
+    if (markdownReport) {
+      await loadReportPreview(container, markdownReport);
+    } else {
+      const note = document.createElement('p');
+      note.className = 'muted';
+      note.textContent =
+        'No Markdown report was returned. Open the JSON report link to inspect metrics.';
+      container.appendChild(note);
+    }
+  }
+
+  $('planBtn').addEventListener('click', () => {
+    const phases = selectedPhases();
+
+    if (!phases.length) {
+      $('planText').textContent = 'Select at least one phase.';
+      return;
+    }
+
+    $('planText').textContent =
+      `Objective: ${$('objective').value.trim()}\n` +
+      `Endpoint: ${$('baseUrl').value.trim()}\n` +
+      `Release: ${$('release').value.trim()}\n` +
+      `Planned phases: ${phases.join(' → ')}\n\n` +
+      'The server enforces phase order and intensive-test authorization.\n' +
+      'This is a configuration preview, not an LLM-generated plan.';
+  });
+
+  async function refreshStatus() {
+    if (!currentRunId) {
+      $('status').textContent = 'No run selected';
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/runs/${encodeURIComponent(currentRunId)}`,
+        { cache: 'no-store' }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Status request failed');
+      }
+
+      $('status').textContent = data.status || 'Unknown';
+      $('runId').textContent = `Run ID: ${data.id || currentRunId}`;
+      $('output').textContent = data.output || 'Waiting for output...';
+
+      if (Array.isArray(data.reports) && data.reports.length > 0) {
+        // Avoid repeatedly replacing the report preview while polling.
+        if (lastStatus !== data.status || ! $('reports').querySelector('a')) {
+          await displayReports(data.reports, data.status);
+        }
+      } else if (['completed', 'failed'].includes(data.status)) {
+        showReportMessage(
+          'No report links returned by the server. Check the execution output.'
+        );
+      } else {
+        showReportMessage('Performance report will appear when the run completes.');
+      }
+
+      lastStatus = data.status;
+
+      if (['completed', 'failed'].includes(data.status)) {
+        if (pollHandle) {
+          clearInterval(pollHandle);
+          pollHandle = null;
+        }
+        $('runBtn').disabled = false;
+      }
+    } catch (error) {
+      $('status').textContent = 'Status unavailable';
+      $('output').textContent = error.message;
+    }
+  }
+
+  $('refreshBtn').addEventListener('click', refreshStatus);
+
+  $('runBtn').addEventListener('click', async () => {
+    const phases = selectedPhases();
+
+    if (!phases.length) {
+      alert('Select at least one test phase.');
+      return;
+    }
+
+    const intensive = phases.some(phase => phase !== 'baseline');
+
+    if (intensive && !confirm(
+      'This selection includes intensive phases and may generate sustained or elevated traffic. Continue only if you are authorized to test this application.'
+    )) {
+      return;
+    }
+
+    $('runBtn').disabled = true;
+    $('status').textContent = 'Submitting...';
+    $('output').textContent = '';
+    showReportMessage('Waiting for report...');
+    lastStatus = null;
+
+    if (pollHandle) {
+      clearInterval(pollHandle);
+      pollHandle = null;
+    }
+
+    try {
+      const response = await fetch('/api/runs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phases,
+          baseUrl: $('baseUrl').value.trim(),
+          objective: $('objective').value.trim(),
+          release: $('release').value.trim(),
+          allowIntensive: intensive
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Could not start run');
+      }
+
+      currentRunId = data.id;
+      $('runId').textContent = `Run ID: ${currentRunId}`;
+
+      await refreshStatus();
+
+      pollHandle = setInterval(refreshStatus, 2000);
+    } catch (error) {
+      $('status').textContent = 'Failed to start';
+      $('output').textContent = error.message;
+      $('runBtn').disabled = false;
+    }
+  });
+</script>
+</body>
+</html>

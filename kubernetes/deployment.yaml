@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-perf-order-service
+  labels:
+    app: ai-perf-order-service
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: ai-perf-order-service
+
+  template:
+    metadata:
+      labels:
+        app: ai-perf-order-service
+
+    spec:
+      containers:
+        - name: order-service
+          image: localhost:5000/ai-perf-order-service:1.0
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 3002
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 10
+            periodSeconds: 15

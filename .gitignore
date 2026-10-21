@@ -1,0 +1,38 @@
+# Node.js
+node_modules/
+npm-debug.log*
+
+# JMeter results
+*.jtl
+*.jmx.bak
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Generated reports
+reports/*.json
+reports/*.html
+reports/*.md
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.dbmetrics.json
+jmeter.log
+scripts/jmeter
+python-engine/metrics.json
+ai-engine/ai_rca_prompt_from_mcp.txt
+ai-engine/ai_rca_report.md
+ai-engine/mcp_rca_evidence.json
+existing_code.txt

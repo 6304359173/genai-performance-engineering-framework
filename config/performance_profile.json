@@ -1,0 +1,53 @@
+{
+  "application": "AI Order Service",
+  "release": "5.2",
+  "base_url": "http://localhost:3002/products",
+  "sla": {
+    "p95_ms": 2000,
+    "max_error_rate_percent": 1,
+    "min_checks_rate": 0.99,
+    "max_dropped_iterations": 0
+  },
+  "phases": {
+    "baseline": {
+      "rate": 10,
+      "duration": "30s",
+      "min_request_rate": 10,
+      "pre_allocated_vus": 2,
+      "max_vus": 5,
+      "intensive": false
+    },
+    "load": {
+      "rate": 20,
+      "duration": "60s",
+      "min_request_rate": 18,
+      "pre_allocated_vus": 5,
+      "max_vus": 20,
+      "intensive": true
+    },
+    "stress": {
+      "rate": 30,
+      "duration": "60s",
+      "min_request_rate": 27,
+      "pre_allocated_vus": 10,
+      "max_vus": 30,
+      "intensive": true
+    },
+    "spike": {
+      "rate": 50,
+      "duration": "15s",
+      "min_request_rate": 45,
+      "pre_allocated_vus": 10,
+      "max_vus": 50,
+      "intensive": true
+    },
+    "soak": {
+      "rate": 10,
+      "duration": "300s",
+      "min_request_rate": 9,
+      "pre_allocated_vus": 3,
+      "max_vus": 10,
+      "intensive": true
+    }
+  }
+}
